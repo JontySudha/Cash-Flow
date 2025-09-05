@@ -5,9 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { useUserAuth } from "../../hooks/useUserAuth";
 import axiosInstance from "../../utils/axiosInstance";
 import { API_PATHS } from "../../utils/apiPaths";
-import IncomeOverview from "../../components/Expense/ExpenseOverview";
-import ExpenseList from "../../components/Expense/ExpenseList";
 import ExpenseOverview from "../../components/Expense/ExpenseOverview";
+import ExpenseList from "../../components/Expense/ExpenseList";
 import AddExpenseForm from "../../components/Expense/AddExpenseForm";
 import DeleteAlert from "../../components/DeleteAlert";
 import Modal from "../../components/Modal";
@@ -15,11 +14,13 @@ import toast from "react-hot-toast";
 
 const Expense = () => {
   useUserAuth();
-
   const navigate = useNavigate();
 
+  // States
   const [expenseData, setExpenseData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loadingExpense, setLoadingExpense] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(false);
 
   const [openAddExpenseModal, setOpenAddExpenseModal] = useState(false);
   const [openDeleteAlert, setOpenDeleteAlert] = useState({
@@ -27,24 +28,37 @@ const Expense = () => {
     data: null,
   });
 
+  // Fetch user info
+  const fetchUser = async () => {
+    if (loadingUser) return;
+
+    setLoadingUser(true);
+    try {
+      const response = await axiosInstance.get(API_PATHS.AUTH.GET_USER);
+      if (response.data) {
+        setUser(response.data.user); // { fullname, email, ... }
+      }
+    } catch (error) {
+      console.error("Failed to fetch user info.", error);
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+
   // Get All Expense Details
   const fetchExpenseDetails = async () => {
-    if (loading) return;
+    if (loadingExpense) return;
 
-    setLoading(true);
-
+    setLoadingExpense(true);
     try {
-      const response = await axiosInstance.get(
-        `${API_PATHS.EXPENSE.GET_ALL_EXPENSE}`
-      );
-
+      const response = await axiosInstance.get(API_PATHS.EXPENSE.GET_ALL_EXPENSE);
       if (response.data) {
         setExpenseData(response.data);
       }
     } catch (error) {
       console.log("Something went wrong. Please try again.", error);
     } finally {
-      setLoading(false);
+      setLoadingExpense(false);
     }
   };
 
@@ -52,7 +66,6 @@ const Expense = () => {
   const handleAddExpense = async (expense) => {
     const { category, amount, date, icon } = expense;
 
-    // Validation Checks
     if (!category.trim()) {
       toast.error("Category is required.");
       return;
@@ -103,53 +116,48 @@ const Expense = () => {
     }
   };
 
-  // handle download expense details
+  // Download expense details
   const handleDownloadExpenseDetails = async () => {
     try {
-      const response = await axiosInstance.get(
-        API_PATHS.EXPENSE.DOWNLOAD_EXPENSE,
-        {
-          responseType: "blob", 
-        }
-      );
+      const response = await axiosInstance.get(API_PATHS.EXPENSE.DOWNLOAD_EXPENSE, {
+        responseType: "blob",
+      });
 
-      // Create a URL for the blob
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", "expense_details.xlsx"); 
+      link.setAttribute("download", "expense_details.xlsx");
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url); 
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error downloading expense details:", error);
       toast.error("Failed to download expense details. Please try again.");
     }
   };
 
+  // Fetch user and expense data on mount
   useEffect(() => {
+    fetchUser();
     fetchExpenseDetails();
-
-    return () => {};
   }, []);
 
+  // Show loading if user not loaded yet
+  if (!user || loadingUser) return <p>Loading...</p>;
+
   return (
-    <DashboardLayout activeMenu="Expense">
+    <DashboardLayout activeMenu="Expense" user={user}>
       <div className="my-5 mx-auto">
         <div className="grid grid-cols-1 gap-6">
-          <div className="">
-            <ExpenseOverview
-              transactions={expenseData}
-              onExpenseIncome={() => setOpenAddExpenseModal(true)}
-            />
-          </div>
+          <ExpenseOverview
+            transactions={expenseData}
+            onExpenseIncome={() => setOpenAddExpenseModal(true)}
+          />
 
           <ExpenseList
             transactions={expenseData}
-            onDelete={(id) => {
-              setOpenDeleteAlert({ show: true, data: id });
-            }}
+            onDelete={(id) => setOpenDeleteAlert({ show: true, data: id })}
             onDownload={handleDownloadExpenseDetails}
           />
 
