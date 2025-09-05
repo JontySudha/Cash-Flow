@@ -17,23 +17,23 @@ axiosInstance.interceptors.request.use(
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
+
+    // 🛠 Debug log: show full request URL
+    console.log("➡️ API Request:", config.baseURL + config.url);
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response Interceptor
 axiosInstance.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    // Handle common errors globally
     if (error.response) {
+      console.error("❌ API Error:", error.response.status, error.response.data);
+
       if (error.response.status === 401) {
-        // Redirect to login page
         window.location.href = "/login";
       } else if (error.response.status === 500) {
         console.error("Server error. Please try again later.");
