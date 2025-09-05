@@ -15,9 +15,13 @@ import DeleteAlert from "../../components/DeleteAlert";
 
 const Income = () => {
   useUserAuth();
+  const navigate = useNavigate();
 
+  // States
   const [incomeData, setIncomeData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loadingIncome, setLoadingIncome] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(false);
 
   const [openAddIncomeModal, setOpenAddIncomeModal] = useState(false);
   const [openDeleteAlert, setOpenDeleteAlert] = useState({
@@ -25,24 +29,37 @@ const Income = () => {
     data: null,
   });
 
+  // Fetch user info
+  const fetchUser = async () => {
+    if (loadingUser) return;
+
+    setLoadingUser(true);
+    try {
+      const response = await axiosInstance.get(API_PATHS.AUTH.GET_USER);
+      if (response.data) {
+        setUser(response.data.user); // { fullname, email, ... }
+      }
+    } catch (error) {
+      console.error("Failed to fetch user info.", error);
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+
   // Get All Income Details
   const fetchIncomeDetails = async () => {
-    if (loading) return;
+    if (loadingIncome) return;
 
-    setLoading(true);
-
+    setLoadingIncome(true);
     try {
-      const response = await axiosInstance.get(
-        `${API_PATHS.INCOME.GET_ALL_INCOME}`
-      );
-
+      const response = await axiosInstance.get(API_PATHS.INCOME.GET_ALL_INCOME);
       if (response.data) {
         setIncomeData(response.data);
       }
     } catch (error) {
       console.log("Something went wrong. Please try again.", error);
     } finally {
-      setLoading(false);
+      setLoadingIncome(false);
     }
   };
 
@@ -50,7 +67,6 @@ const Income = () => {
   const handleAddIncome = async (income) => {
     const { source, amount, date, icon } = income;
 
-    // Validation Checks
     if (!source.trim()) {
       toast.error("Source is required.");
       return;
@@ -101,52 +117,48 @@ const Income = () => {
     }
   };
 
-  // handle download income details
+  // Download income details
   const handleDownloadIncomeDetails = async () => {
     try {
-      const response = await axiosInstance.get(
-        API_PATHS.INCOME.DOWNLOAD_INCOME,
-        {
-          responseType: "blob", 
-        }
-      );
+      const response = await axiosInstance.get(API_PATHS.INCOME.DOWNLOAD_INCOME, {
+        responseType: "blob",
+      });
 
-      // Create a URL for the blob
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", "income_details.xlsx"); 
+      link.setAttribute("download", "income_details.xlsx");
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url); 
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error downloading income details:", error);
       toast.error("Failed to download income details. Please try again.");
     }
   };
 
+  // Fetch data on mount
   useEffect(() => {
+    fetchUser();
     fetchIncomeDetails();
-    return () => {};
   }, []);
 
+  // Show loading if either user or income is not loaded
+  if (!user || loadingUser) return <p>Loading...</p>;
+
   return (
-    <DashboardLayout activeMenu="Income">
+    <DashboardLayout activeMenu="Income" user={user}>
       <div className="my-5 mx-auto">
         <div className="grid grid-cols-1 gap-6">
-          <div className="">
-            <IncomeOverview
-              transactions={incomeData}
-              onAddIncome={() => setOpenAddIncomeModal(true)}
-            />
-          </div>
+          <IncomeOverview
+            transactions={incomeData}
+            onAddIncome={() => setOpenAddIncomeModal(true)}
+          />
 
           <IncomeList
             transactions={incomeData}
-            onDelete={(id) => {
-              setOpenDeleteAlert({ show: true, data: id });
-            }}
+            onDelete={(id) => setOpenDeleteAlert({ show: true, data: id })}
             onDownload={handleDownloadIncomeDetails}
           />
 
