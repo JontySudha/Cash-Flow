@@ -22,38 +22,60 @@ const Home = () => {
 
   const navigate = useNavigate();
 
+  // States
   const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(false);
 
+  // Fetch dashboard data
   const fetchDashboardData = async () => {
-    if (loading) return;
+    if (loadingDashboard) return;
 
-    setLoading(true);
+    setLoadingDashboard(true);
 
     try {
-      const response = await axiosInstance.get(
-        `${API_PATHS.DASHBOARD.GET_DATA}`
-      );
-
+      const response = await axiosInstance.get(API_PATHS.DASHBOARD.GET_DATA);
       if (response.data) {
         setDashboardData(response.data);
       }
     } catch (error) {
       console.log("Something went wrong. Please try again.", error);
     } finally {
-      setLoading(false);
+      setLoadingDashboard(false);
+    }
+  };
+
+  // Fetch user info
+  const fetchUser = async () => {
+    if (loadingUser) return;
+
+    setLoadingUser(true);
+
+    try {
+      const response = await axiosInstance.get(API_PATHS.AUTH.GET_USER);
+      if (response.data) {
+        setUser(response.data.user); // expects { fullname, email, ... }
+      }
+    } catch (error) {
+      console.log("Failed to fetch user info.", error);
+    } finally {
+      setLoadingUser(false);
     }
   };
 
   useEffect(() => {
     fetchDashboardData();
-
-    return () => {};
+    fetchUser();
   }, []);
 
+  // Show loading if either is loading
+  if (!dashboardData || !user) return <p>Loading...</p>;
+
   return (
-    <DashboardLayout activeMenu="Dashboard">
+    <DashboardLayout activeMenu="Dashboard" user={user}>
       <div className="my-5 mx-auto">
+        {/* Info Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <InfoCard
             icon={<IoMdCard />}
@@ -61,14 +83,12 @@ const Home = () => {
             value={addThousandsSeparator(dashboardData?.totalBalance || 0)}
             color="bg-primary"
           />
-
           <InfoCard
             icon={<LuWalletMinimal />}
             label="Total Income"
             value={addThousandsSeparator(dashboardData?.totalIncome || 0)}
             color="bg-orange-500"
           />
-
           <InfoCard
             icon={<LuHandCoins />}
             label="Total Expenses"
@@ -77,8 +97,10 @@ const Home = () => {
           />
         </div>
 
+        {/* Dashboard Sections */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <RecentTransactions
+            user={user}
             transactions={dashboardData?.recentTransactions}
             onSeeMore={() => navigate("/expense")}
           />
@@ -90,20 +112,24 @@ const Home = () => {
           />
 
           <ExpenseTransactions
+            user={user}
             transactions={dashboardData?.last30DaysExpenses?.transactions || []}
             onSeeMore={() => navigate("/expense")}
           />
 
           <Last30DaysExpenses
+            user={user}
             data={dashboardData?.last30DaysExpenses?.transactions || []}
           />
 
           <RecentIncomeWithChart
-            data={dashboardData?.last60DaysIncome?.transactions?.slice(0,4) || []}
+            user={user}
+            data={dashboardData?.last60DaysIncome?.transactions?.slice(0, 4) || []}
             totalIncome={dashboardData?.totalIncome || 0}
           />
 
           <RecentIncome
+            user={user}
             transactions={dashboardData?.last60DaysIncome?.transactions || []}
             onSeeMore={() => navigate("/income")}
           />
