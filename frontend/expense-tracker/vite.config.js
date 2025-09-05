@@ -4,8 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  base: './', // ✅ Important for Vercel SPA deployment
   server: {
-    port: 5173, // keep frontend on 5173
+    port: 5173,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
